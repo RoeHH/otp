@@ -1,11 +1,10 @@
 import { VerifiedRegistrationResponse } from "https://deno.land/x/simplewebauthn/deno/server.ts";
 import { CredentialDeviceType } from "https://deno.land/x/simplewebauthn@v8.1.1/packages/server/src/deps.ts";
-
-
 import { kv } from "./kv.ts";
+import "https://deno.land/std@0.201.0/dotenv/load.ts";
 
-export const rpID = "localhost";
-export const rpName = "RoeHs App";
+export const rpID = Deno.env.get("DENO_DEPLOYMENT_ID") ? "otp.roeh.ch" :"localhost";
+export const rpName = "RoeHs OTP App";
 
 export type UserModel = {
   id: string;

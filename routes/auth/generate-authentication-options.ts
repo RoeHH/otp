@@ -8,8 +8,6 @@ import {
   createNewTempUser,
   getAuthenticators,
   getUser,
-  rpID,
-  rpName,
   setChallenge,
 } from "$webauthn";
 
@@ -17,12 +15,16 @@ export const handler: Handlers = {
   async POST(req: Request, _ctx) {
     const {username} = await req.json();
     const user = await getUser(username);
-    
-    if (!user) {
+        
+    if (user === undefined) {
       return new Response(JSON.stringify({error: "User Not Found"}), { status: 404 });
     }
-    
+
     const userAuthenticators: Authenticator[] = await getAuthenticators(user.username);
+    
+    if (userAuthenticators.length === 0) {
+      return new Response(JSON.stringify({error: "User Not Found"}), { status: 404 });
+    }
 
     const options = await generateAuthenticationOptions({
       // Require users to use a previously-registered authenticator
