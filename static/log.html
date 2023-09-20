@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+
+
+</head>
+<body>
+    <button id="btnRegister">Begin registration</button>
+    <button id="btnLogin">Begin login</button>
+    <p id="success"></p>
+    <p id="name"></p>
+    <p id="error"></p>
+
+    <script>
+        const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
+      
+        // <button>
+        const elemRegister = document.getElementById('btnRegister');
+        // <span>/<p>/etc...
+        const elemSuccess = document.getElementById('success');
+        // <span>/<p>/etc...
+        const elemError = document.getElementById('error');
+        const nameEl = document.getElementById('name');
+      
+        // Start registration when the user clicks a button
+        elemRegister.addEventListener('click', async () => {
+          // Reset success/error messages
+          elemSuccess.innerHTML = '';
+          elemError.innerHTML = '';
+      
+          // GET registration options from the endpoint that calls
+          // @simplewebauthn/server -> generateRegistrationOptions()
+          const resp = await fetch('/generate-registration-options').then((r) => r.json());
+          
+          let attResp;
+          try {
+            // Pass the options to the authenticator and wait for a response
+            attResp = await startRegistration(resp);
+          } catch (error) {
+            // Some basic error handling
+            if (error.name === 'InvalidStateError') {
+              elemError.innerText = 'Error: Authenticator was probably already registered by user';
+            } else {
+              elemError.innerText = error;
+            }
+      
+            throw error;
+          }
+
+          nameEl.innerHTML = resp.user.id;
+      
+          // POST the response to the endpoint that calls
+          // @simplewebauthn/server -> verifyRegistrationResponse()
+          const verificationResp = await fetch('/verify-registration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({...attResp, _options:resp}),
+          });
+      
+          // Wait for the results of verification
+          const verificationJSON = await verificationResp.json();
+      
+          // Show UI appropriate for the `verified` status
+          if (verificationJSON && verificationJSON.verified) {
+            elemSuccess.innerHTML = 'Success!';
+          } else {
+            elemError.innerHTML = `Oh no, something went wrong! Response: <pre>${JSON.stringify(
+              verificationJSON,
+            )}</pre>`;
+          }
+        });
+
+        const elemBegin = document.getElementById('btnBegin');
+        btnLogin.addEventListener('click', async () => {
+            // Reset success/error messages
+            elemSuccess.innerHTML = '';
+            elemError.innerHTML = '';
+
+            // GET authentication options from the endpoint that calls
+            // @simplewebauthn/server -> generateAuthenticationOptions()
+            const resp = await fetch('/generate-authentication-options/', {
+              method: 'POST',
+              headers: {
+              'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({id: nameEl.innerHTML}),
+              }).then((r) => r.json());
+
+            let asseResp;
+            try {
+            // Pass the options to the authenticator and wait for a response
+            asseResp = await startAuthentication(resp);
+            } catch (error) {
+            // Some basic error handling
+            elemError.innerText = error;
+            throw error;
+            }
+
+            // POST the response to the endpoint that calls
+            // @simplewebauthn/server -> verifyAuthenticationResponse()
+            const verificationResp = await fetch('/verify-authentication', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({...asseResp, _options:resp}),
+            });
+
+            // Wait for the results of verification
+            const verificationJSON = await verificationResp.json();
+
+            // Show UI appropriate for the `verified` status
+            if (verificationJSON && verificationJSON.verified) {
+            elemSuccess.innerHTML = 'Success!';
+            } else {
+            elemError.innerHTML = `Oh no, something went wrong! Response:
+            <pre>${JSON.stringify(
+                    verificationJSON,
+                  )}</pre>`;
+            }
+          });
+      </script>
+</body>
+</html>
